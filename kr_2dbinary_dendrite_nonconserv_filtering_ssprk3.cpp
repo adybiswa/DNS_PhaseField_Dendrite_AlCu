@@ -19,7 +19,7 @@
 #include <iomanip>
 #include <ctime>
 using namespace std;
-int NP1 = 900, NP2 = NP1, NPH1 = NP1/2, NPH2 = NP2/2;
+int NP1 = 1024, NP2 = NP1, NPH1 = NP1/2, NPH2 = NP2/2;
 int NPH2P1=NPH2+1;
 // calling the functions within the scope of main
 void DERIVATIVE_FOURIER(std::complex<double>** fourier_ux_temp, double** k1_temp, std::complex<double>** uhat0_temp, int NP1_temp, int NP2_temp);
@@ -32,6 +32,7 @@ void CALCULATE_ANISOTROPY(double** sigma_temp, double delta_temp, double j_temp,
 void CALCULATE_ANISO_GRAD_ENERGY(double** epsilon_temp, double epsilon_mean_temp, double** sigma_temp, int NP1_temp, int NP2_temp);
 void CALCULATE_DERIVATIVE_ANISO_GRAD_ENERGY(double** depsdtheta_temp, double epsilon_mean_temp, double j_temp, double delta_temp, double** theta_temp, double theta0_temp, int NP1_temp, int NP2_temp);
 void CALCULATE_PHI_T8_PHYSICAL(double** t8_temp, double** phiphysical_temp, double lambda_temp, double** tphysical_temp, double mc_inf_temp, double** ucphysical_temp, int NP1_temp, int NP2_temp);
+void CALCULATE_NORMAL_VEC_COMPONENT_APPROX(double** normal_xcomp_extd_temp ,double** dphidx_extd_temp, double** phi_extd_temp, double width_diff_temp, double phi_lim1_temp, double phi_lim2_temp, double tol_limit_temp,  int NP1_temp, int NP2_temp);
 void CALCULATE_SPECTRAL_LAPLACIAN(std::complex<double>** laplace_phi_hat_temp, double** k1_temp ,std::complex<double>** phihat_temp, int NP1_temp, int NP2_temp);
 void EQRHS_PHI(std::complex<double>** rhs_phi_hat_temp, std::complex<double>** t1_hat_temp, std::complex<double>** t2_hat_temp, std::complex<double>** t3_hat_temp, std::complex<double>** t4_hat_temp, std::complex<double>** t5_hat_temp, std::complex<double>** t6_hat_temp, std::complex<double>** t7_hat_temp, std::complex<double>** t8_hat_temp, int NP1_temp, int NP2_temp);
 void EQRHS_TEMPERATURE(std::complex<double>** rhs_t_hat_temp, std::complex<double>** rhs_phi_hat_temp, int NP1_temp, int NP2_temp);
@@ -80,18 +81,19 @@ int main(int argc, char ** argv)
 	double len1 = 1024.0, dx1 = len1/(NP1), len2 = 1024.0,  dx2 = len2/(NP2);
 	double LH = len1/2.0;
 //	define the values of various parameters
-	double epsilon_mean = 1.0, delta = 0.05, d0 = 0.5, a2 = 0.6267, a1 = ((2.0*sqrt(2.0))/3.0)/(16.0/15.0), j = 4.0, theta0 = 0.0,lambda = 2.0, Delta_ucool = -0.55, width = ((d0*lambda)/a1), part_coeff_const=0.15, mc_inf = 0.07, Le_numb = 40.0;
+	double epsilon_mean = 1.0, delta = 0.02, d0 = 0.5, a2 = 0.6267, a1 = ((2.0*sqrt(2.0))/3.0)/(16.0/15.0), j = 4.0, theta0 = 0.0,lambda = 1.5957, Delta_ucool = -0.55, width_diff = ((d0*lambda)/a1), part_coeff_const=0.15, mc_inf = 0.1, Le_numb = 70.0;
+	//	length of the domain in the x and y directions and the grid spacing in the x and y directions
 	//lambda = alpha/a2,tau0=(a2*lambda*width*width)/(D_uc_liquid)
-	double D_uc_liquid = (a2*lambda), tau0 = 1.0, alpha = (D_uc_liquid*Le_numb);
+	double D_uc_liquid = (a2*lambda), tau0 = 1.0, alpha = (D_uc_liquid*Le_numb), tol_limit = 1e-17, phi_lim1 = -0.9, phi_lim2 = 0.9;
 //	Time increment or step
 	//double dt = pow(dx1,3);
-	double dt = 0.01;
+	double dt = 0.0025;
 	dt = 1.0*dt;
 //	Data output time duration
-	double T_output = (500.0/1.0)*dt;
+	double T_output = (2500.0/1.0)*dt;
 // 	NT number of time steps
 	//int NT = floor(T_total/dt)+1;
-	double NT=(60000.0/1.0);
+	double NT=(450000.0/1.0);
 //	Nout number of time steps at which data is outputed
 	int NOutput = floor(1.0*T_output/dt)+1;
 //	calculation of wavenumbers in 2D
@@ -148,7 +150,7 @@ int main(int argc, char ** argv)
 			}
 			else
 			{
-				wk[i][j] = std::complex<double>(exp(-6.0*pow((kmod[i][j]/NP1), 6.0)),0.0);
+				wk[i][j] = std::complex<double>(exp(-12.0*pow((kmod[i][j]/NP1), 12.0)),0.0);
 			}
 		}
 	}
@@ -169,9 +171,9 @@ int main(int argc, char ** argv)
 		for (int j = 0; j < NP2; j++)
 		{
 			double y = j*dx2;
-			phiphysical[i][j] = tanh(((8.0*dx1)-sqrt((x-LH)*(x-LH)+(y-LH)*(y-LH)))/(sqrt(2.0)*width));
+			phiphysical[i][j] = tanh(((5.0*dx1)-sqrt((x-LH)*(x-LH)+(y-LH)*(y-LH)))/(sqrt(2.0)*width_diff));
 			ucphysical[i][j] = 0.0;
-			tphysical[i][j] = (0.5*Delta_ucool)-(0.5*Delta_ucool*tanh(((8.0*dx1)-sqrt((x-LH)*(x-LH)+(y-LH)*(y-LH)))/(sqrt(2.0)*width)));
+			tphysical[i][j] = (0.5*Delta_ucool)-(0.5*Delta_ucool*tanh(((5.0*dx1)-sqrt((x-LH)*(x-LH)+(y-LH)*(y-LH)))/(sqrt(2.0)*width_diff)));
 		}
 	}	
 	for (int i = 0; i < NP1; i++)
@@ -276,8 +278,23 @@ int main(int argc, char ** argv)
 	double **ducdy_filtered = new double*[NP1];
 	double **multiply_dphidy_ducdy_filtered = new double*[NP1];
 	std::complex<double>** nuc3_hat = new std::complex<double>*[NP1];
-	double **nuc4_filtered = new double*[NP1];
-	std::complex<double>** nuc4_hat = new std::complex<double>*[NP1];	
+	double **normal_xcomp_filtered = new double*[NP1];
+double **normal_ycomp_filtered = new double*[NP1];
+double **dudx_dphidt_normal_xcomp_filtered = new double*[NP1];
+double **dudy_dphidt_normal_ycomp_filtered = new double*[NP1];
+double **dphidt_normal_xcomp_filtered = new double*[NP1];
+double **dphidt_normal_ycomp_filtered = new double*[NP1];
+std::complex<double>**dphidt_normal_xcomp_hat_filtered = new std::complex<double>*[NP1];
+std::complex<double>**dphidt_normal_ycomp_hat_filtered = new std::complex<double>*[NP1];
+std::complex<double>** fourier_ddx_dphidt_normal_xcomp_hat_filtered = new std::complex<double>*[NP1];
+std::complex<double>** fourier_ddy_dphidt_normal_ycomp_hat_filtered = new std::complex<double>*[NP1];
+double **ddx_dphidt_normal_xcomp_filtered = new double*[NP1];
+double **ddy_dphidt_normal_ycomp_filtered = new double*[NP1];
+double **nuc4_physical = new double*[NP1];
+std::complex<double>** nuc4_hat = new std::complex<double>*[NP1];
+double **nuc5_physical = new double*[NP1];
+std::complex<double>** nuc5_hat = new std::complex<double>*[NP1];
+		
 	double **rhs_uc_filtered = new double*[NP1];
 	double **inv_modcoeff_phi_filtered = new double*[NP1];	
 	double **multiply_rhs_uc_inv_modcoeff_phi_filtered = new double*[NP1];	
@@ -360,9 +377,25 @@ int main(int argc, char ** argv)
 		fourier_ducdy[i] = new std::complex<double>[NPH2P1];		
 		ducdy_filtered[i] = new double[NP2];
 		multiply_dphidy_ducdy_filtered[i] = new double[NP2];
-		nuc3_hat[i] = new std::complex<double>[NPH2P1];		
-		nuc4_filtered[i] = new double[NP2];
-		nuc4_hat[i] = new std::complex<double>[NPH2P1];			
+		nuc3_hat[i] = new std::complex<double>[NPH2P1];	
+			
+		normal_xcomp_filtered[i] = new double[NP2];
+normal_ycomp_filtered[i] = new double[NP2];
+dudx_dphidt_normal_xcomp_filtered[i] = new double[NP2];
+dudy_dphidt_normal_ycomp_filtered[i] = new double[NP2];
+dphidt_normal_xcomp_filtered[i] = new double[NP2];
+dphidt_normal_ycomp_filtered[i] = new double[NP2];
+dphidt_normal_xcomp_hat_filtered[i] = new std::complex<double>[NPH2P1];
+dphidt_normal_ycomp_hat_filtered[i] = new std::complex<double>[NPH2P1];
+fourier_ddx_dphidt_normal_xcomp_hat_filtered[i] = new std::complex<double>[NPH2P1];
+fourier_ddy_dphidt_normal_ycomp_hat_filtered[i] = new std::complex<double>[NPH2P1];
+ddx_dphidt_normal_xcomp_filtered[i] = new double[NP2];
+ddy_dphidt_normal_ycomp_filtered[i] = new double[NP2];
+nuc4_physical[i] = new double[NP2];
+nuc4_hat[i] = new std::complex<double>[NPH2P1];	
+nuc5_physical[i] = new double[NP2];
+nuc5_hat[i] = new std::complex<double>[NPH2P1];
+				
 		rhs_uc_filtered[i] = new double[NP2];
 		inv_modcoeff_phi_filtered[i] = new double[NP2];
 		multiply_rhs_uc_inv_modcoeff_phi_filtered[i] = new double[NP2];
@@ -391,7 +424,7 @@ int main(int argc, char ** argv)
 	runstatus_file << "symmetry (j) = " << j << std::endl; 
 	runstatus_file << "theta0 = " << theta0 <<'\t'<<"d0 = " << d0 << std::endl; 
 	runstatus_file << "undercooling (Delta) = " << Delta_ucool << std::endl;
-	runstatus_file << "diffuse interface-width = " << width << std::endl;
+	runstatus_file << "diffuse interface-width = " << width_diff << std::endl;
 //=======================================================================================
 //	start time loop for updating
 	std::cout <<"starting of time update loop"<< std::endl;
@@ -592,21 +625,55 @@ int main(int argc, char ** argv)
 //----------------------------
 // compute NU4 in <substep 1>
 //----------------------------
+//=====================================================================================================//
+
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_xcomp_filtered ,dphidx_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_ycomp_filtered ,dphidy_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NP2; j++)
 			{
-				nuc4_filtered[i][j] = 0.5*(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*rhs_phi_filtered[i][j];
+				dudx_dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j]*ducdx_filtered[i][j];
+				dudy_dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j]*ducdy_filtered[i][j];
+				dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j];
+				dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j];
 			}
 		}
-		FORWARD_TRANSFORM(nuc4_hat, nuc4_filtered, NP1, NP2, NPH2P1);
-		
+FORWARD_TRANSFORM(dphidt_normal_xcomp_hat_filtered, dphidt_normal_xcomp_filtered, NP1, NP2, NPH2P1);
+FORWARD_TRANSFORM(dphidt_normal_ycomp_hat_filtered, dphidt_normal_ycomp_filtered, NP1, NP2, NPH2P1);
+
+DERIVATIVE_FOURIER(fourier_ddx_dphidt_normal_xcomp_hat_filtered, k1, dphidt_normal_xcomp_hat_filtered, NP1, NPH2P1);
+DERIVATIVE_FOURIER(fourier_ddy_dphidt_normal_ycomp_hat_filtered, k2, dphidt_normal_ycomp_hat_filtered, NP1, NPH2P1);
+
+INVERSE_TRANSFORM(ddx_dphidt_normal_xcomp_filtered, fourier_ddx_dphidt_normal_xcomp_hat_filtered, NP1, NP2, NPH2P1);
+INVERSE_TRANSFORM(ddy_dphidt_normal_ycomp_filtered, fourier_ddy_dphidt_normal_ycomp_hat_filtered, NP1, NP2, NPH2P1);
+
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+					nuc4_physical[i][j] = (1.0/(2.0*sqrt(2.0)))*((abs(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*(ddx_dphidt_normal_xcomp_filtered[i][j]+ddy_dphidt_normal_ycomp_filtered[i][j]))+((1.0-part_coeff_const)*(dudx_dphidt_normal_xcomp_filtered[i][j]+dudy_dphidt_normal_ycomp_filtered[i][j])));
+			}
+		}	
+		FORWARD_TRANSFORM(nuc4_hat, nuc4_physical, NP1, NP2, NPH2P1);
+//----------------------------
+// compute NU5 in <substep 1>
+//----------------------------
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+				nuc5_physical[i][j] = 0.5*abs(1.0+(1.0-part_coeff_const)*uc_filtered[i][j])*multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j];
+			}
+		}
+		FORWARD_TRANSFORM(nuc5_hat, nuc5_physical, NP1, NP2, NPH2P1);
+		//std::cout <<"not dumping core"<< std::endl;
 		// calculate RHS for the uc evolution equation
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NPH2P1; j++)
 			{
-				rhs_uc_hat_k1[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j];
+				rhs_uc_hat_k1[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j]+nuc5_hat[i][j];
 			}
 		}
 //-------------------------
@@ -790,21 +857,54 @@ int main(int argc, char ** argv)
 //----------------------------
 // compute NU4 in <substep 2>
 //----------------------------
+//=====================================================================================================//
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_xcomp_filtered ,dphidx_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_ycomp_filtered ,dphidy_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NP2; j++)
 			{
-				nuc4_filtered[i][j] = 0.5*(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*rhs_phi_filtered[i][j];
+				dudx_dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j]*ducdx_filtered[i][j];
+				dudy_dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j]*ducdy_filtered[i][j];
+				dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j];
+				dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j];
 			}
 		}
-		FORWARD_TRANSFORM(nuc4_hat, nuc4_filtered, NP1, NP2, NPH2P1);
-		
+FORWARD_TRANSFORM(dphidt_normal_xcomp_hat_filtered, dphidt_normal_xcomp_filtered, NP1, NP2, NPH2P1);
+FORWARD_TRANSFORM(dphidt_normal_ycomp_hat_filtered, dphidt_normal_ycomp_filtered, NP1, NP2, NPH2P1);
+
+DERIVATIVE_FOURIER(fourier_ddx_dphidt_normal_xcomp_hat_filtered, k1, dphidt_normal_xcomp_hat_filtered, NP1, NPH2P1);
+DERIVATIVE_FOURIER(fourier_ddy_dphidt_normal_ycomp_hat_filtered, k2, dphidt_normal_ycomp_hat_filtered, NP1, NPH2P1);
+
+INVERSE_TRANSFORM(ddx_dphidt_normal_xcomp_filtered, fourier_ddx_dphidt_normal_xcomp_hat_filtered, NP1, NP2, NPH2P1);
+INVERSE_TRANSFORM(ddy_dphidt_normal_ycomp_filtered, fourier_ddy_dphidt_normal_ycomp_hat_filtered, NP1, NP2, NPH2P1);
+
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+					nuc4_physical[i][j] = (1.0/(2.0*sqrt(2.0)))*((abs(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*(ddx_dphidt_normal_xcomp_filtered[i][j]+ddy_dphidt_normal_ycomp_filtered[i][j]))+((1.0-part_coeff_const)*(dudx_dphidt_normal_xcomp_filtered[i][j]+dudy_dphidt_normal_ycomp_filtered[i][j])));
+			}
+		}	
+		FORWARD_TRANSFORM(nuc4_hat, nuc4_physical, NP1, NP2, NPH2P1);
+//----------------------------
+// compute NU5 in <substep 1>
+//----------------------------
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+				nuc5_physical[i][j] = 0.5*abs(1.0+(1.0-part_coeff_const)*uc_filtered[i][j])*multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j];
+			}
+		}
+		FORWARD_TRANSFORM(nuc5_hat, nuc5_physical, NP1, NP2, NPH2P1);
+		//std::cout <<"not dumping core"<< std::endl;
 		// calculate RHS for the uc evolution equation
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NPH2P1; j++)
 			{
-				rhs_uc_hat_k2[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j];
+				rhs_uc_hat_k2[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j]+nuc5_hat[i][j];
 			}
 		}
 //--------------------------------
@@ -986,23 +1086,56 @@ int main(int argc, char ** argv)
 		MULTIPLY_PHYSICAL_SPACE(multiply_dphidy_ducdy_filtered, dphidy_filtered, ducdy_filtered, NP1, NP2);
 		FORWARD_TRANSFORM(nuc3_hat, multiply_dphidy_ducdy_filtered, NP1, NP2, NPH2P1);
 //----------------------------
-// compute NU4 in <substep 3>
+// compute NU4 in <substep 1>
+//----------------------------
+//=====================================================================================================//
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_xcomp_filtered ,dphidx_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
+CALCULATE_NORMAL_VEC_COMPONENT_APPROX(normal_ycomp_filtered ,dphidy_filtered, phi_filtered, width_diff, phi_lim1, phi_lim2, tol_limit, NP1, NP2);
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+				dudx_dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j]*ducdx_filtered[i][j];
+				dudy_dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j]*ducdy_filtered[i][j];
+				dphidt_normal_xcomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_xcomp_filtered[i][j];
+				dphidt_normal_ycomp_filtered[i][j] = multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j]*normal_ycomp_filtered[i][j];
+			}
+		}
+FORWARD_TRANSFORM(dphidt_normal_xcomp_hat_filtered, dphidt_normal_xcomp_filtered, NP1, NP2, NPH2P1);
+FORWARD_TRANSFORM(dphidt_normal_ycomp_hat_filtered, dphidt_normal_ycomp_filtered, NP1, NP2, NPH2P1);
+
+DERIVATIVE_FOURIER(fourier_ddx_dphidt_normal_xcomp_hat_filtered, k1, dphidt_normal_xcomp_hat_filtered, NP1, NPH2P1);
+DERIVATIVE_FOURIER(fourier_ddy_dphidt_normal_ycomp_hat_filtered, k2, dphidt_normal_ycomp_hat_filtered, NP1, NPH2P1);
+
+INVERSE_TRANSFORM(ddx_dphidt_normal_xcomp_filtered, fourier_ddx_dphidt_normal_xcomp_hat_filtered, NP1, NP2, NPH2P1);
+INVERSE_TRANSFORM(ddy_dphidt_normal_ycomp_filtered, fourier_ddy_dphidt_normal_ycomp_hat_filtered, NP1, NP2, NPH2P1);
+
+		for(int i=0; i<NP1 ;i++)
+		{
+			for(int j=0; j<NP2; j++)
+			{
+					nuc4_physical[i][j] = (1.0/(2.0*sqrt(2.0)))*((abs(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*(ddx_dphidt_normal_xcomp_filtered[i][j]+ddy_dphidt_normal_ycomp_filtered[i][j]))+((1.0-part_coeff_const)*(dudx_dphidt_normal_xcomp_filtered[i][j]+dudy_dphidt_normal_ycomp_filtered[i][j])));
+			}
+		}	
+		FORWARD_TRANSFORM(nuc4_hat, nuc4_physical, NP1, NP2, NPH2P1);
+//----------------------------
+// compute NU5 in <substep 1>
 //----------------------------
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NP2; j++)
 			{
-				nuc4_filtered[i][j] = 0.5*(1.0+((1.0-part_coeff_const)*uc_filtered[i][j]))*rhs_phi_filtered[i][j];
+				nuc5_physical[i][j] = 0.5*abs(1.0+(1.0-part_coeff_const)*uc_filtered[i][j])*multiply_rhs_phi_inv_modified_epsilon_epsilon_filtered[i][j];
 			}
 		}
-		FORWARD_TRANSFORM(nuc4_hat, nuc4_filtered, NP1, NP2, NPH2P1);
-		
+		FORWARD_TRANSFORM(nuc5_hat, nuc5_physical, NP1, NP2, NPH2P1);
+		//std::cout <<"not dumping core"<< std::endl;
 		// calculate RHS for the uc evolution equation
 		for(int i=0; i<NP1 ;i++)
 		{
 			for(int j=0; j<NPH2P1; j++)
 			{
-				rhs_uc_hat_k3[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j];
+				rhs_uc_hat_k3[i][j] = (0.5*D_uc_liquid*(nuc1_hat[i][j]-nuc2_hat[i][j]-nuc3_hat[i][j]))+nuc4_hat[i][j]+nuc5_hat[i][j];
 			}
 		}
 //--------------------------------------------
@@ -1145,9 +1278,22 @@ int main(int argc, char ** argv)
 		delete [] ducdy_filtered[i];
 		delete [] multiply_dphidy_ducdy_filtered[i];
 		delete [] nuc3_hat[i];		
-		delete [] nuc4_filtered[i];
+delete [] normal_xcomp_filtered[i];
+delete [] normal_ycomp_filtered[i];
+delete [] dudx_dphidt_normal_xcomp_filtered[i];
+delete [] dudy_dphidt_normal_ycomp_filtered[i];
+delete [] dphidt_normal_xcomp_filtered[i];
+delete [] dphidt_normal_ycomp_filtered[i];
+delete [] dphidt_normal_xcomp_hat_filtered[i];
+delete [] dphidt_normal_ycomp_hat_filtered[i];
+delete [] fourier_ddx_dphidt_normal_xcomp_hat_filtered[i];
+delete [] fourier_ddy_dphidt_normal_ycomp_hat_filtered[i];
+delete [] ddx_dphidt_normal_xcomp_filtered[i];
+delete [] ddy_dphidt_normal_ycomp_filtered[i];
+delete [] nuc4_physical[i];
+delete [] nuc5_physical[i];
+delete [] nuc5_hat[i];
 		delete [] nuc4_hat[i];			
-		delete [] rhs_uc_filtered[i];
 		delete [] inv_modcoeff_phi_filtered[i];
 		delete [] multiply_rhs_uc_inv_modcoeff_phi_filtered[i];		
 		delete [] rhs_uc_hat_k1[i];
@@ -1242,7 +1388,21 @@ int main(int argc, char ** argv)
 		delete [] ducdy_filtered;
 		delete [] multiply_dphidy_ducdy_filtered;
 		delete [] nuc3_hat;		
-		delete [] nuc4_filtered;
+delete [] normal_xcomp_filtered;
+delete [] normal_ycomp_filtered;
+delete [] dudx_dphidt_normal_xcomp_filtered;
+delete [] dudy_dphidt_normal_ycomp_filtered;
+delete [] dphidt_normal_xcomp_filtered;
+delete [] dphidt_normal_ycomp_filtered;
+delete [] dphidt_normal_xcomp_hat_filtered;
+delete [] dphidt_normal_ycomp_hat_filtered;
+delete [] fourier_ddx_dphidt_normal_xcomp_hat_filtered;
+delete [] fourier_ddy_dphidt_normal_ycomp_hat_filtered;
+delete [] ddx_dphidt_normal_xcomp_filtered;
+delete [] ddy_dphidt_normal_ycomp_filtered;
+delete [] nuc4_physical;
+delete [] nuc5_physical;
+delete [] nuc5_hat;
 		delete [] nuc4_hat;		
 		delete [] rhs_uc_filtered;
 		delete [] inv_modcoeff_phi_filtered;
@@ -1487,6 +1647,27 @@ void CALCULATE_SPECTRAL_LAPLACIAN(std::complex<double>** laplace_phi_hat_temp, d
 		for(int j=0; j<NP2_temp; j++)
 		{
 			laplace_phi_hat_temp[i][j] = -1.0*pow(k1_temp[i][j],2)*phihat_temp[i][j];
+		}
+	}
+}
+//=======================================
+// calculation of normal vector component
+//=======================================
+void CALCULATE_NORMAL_VEC_COMPONENT_APPROX(double** normal_xcomp_extd_temp ,double** dphidx_extd_temp, double** phi_extd_temp, double width_diff_temp, double phi_lim1_temp, double phi_lim2_temp, double tol_limit_temp,  int NP1_temp, int NP2_temp)
+{
+	for (int i=0; i<NP1_temp; i++)
+	{
+		for(int j=0; j<NP2_temp; j++)
+		{
+				
+				if(phi_extd_temp[i][j] >= phi_lim1_temp && phi_extd_temp[i][j] <= phi_lim2_temp)
+				{
+					normal_xcomp_extd_temp[i][j] = (sqrt(2.0)*width_diff_temp*dphidx_extd_temp[i][j])/((1.0-pow(phi_extd_temp[i][j],2.0)));
+				}
+				else
+				{
+					normal_xcomp_extd_temp[i][j] = 0.0;
+				}
 		}
 	}
 }
